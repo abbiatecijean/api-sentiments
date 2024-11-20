@@ -1,23 +1,31 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from transformers import pipeline
+import torch
 
-# Charger le modèle depuis le dossier local
-classifier = pipeline("text-classification", model="./BERT-Emotions-Classifier")
-
-# Créer une application FastAPI
+# Initialiser FastAPI
 app = FastAPI()
 
-# Définir la structure des requêtes entrantes
+# Charger le pipeline de classification multi-label
+classifier = pipeline(
+    task="text-classification",
+    model="ayoubkirouane/BERT-Emotions-Classifier",
+    device=torch.cuda.current_device() if torch.cuda.is_available() else -1,
+    top_k=None  # Retourner tous les scores
+)
+
+# Définir le schéma pour la requête
 class TextRequest(BaseModel):
     text: str
 
-# Point d'entrée API
+# Route pour classifier un texte
 @app.post("/classify")
 def classify_text(request: TextRequest):
-    try:
-        # Utiliser le modèle pour classifier le texte
-        results = classifier(request.text)
-        return {"results": results}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Texte à analyser
+    text = request.text
+    
+    # Obtenir tous les scores pour toutes les étiquettes
+    results = classifier(text)
+    
+    # Retourner les résultats bruts
+    return {"classification": results[0]}
